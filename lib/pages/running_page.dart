@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/run_record.dart';
+import '../models/workout_plan.dart';
 import '../services/run_session.dart';
 import '../theme.dart';
 import '../utils/format.dart';
@@ -8,9 +9,12 @@ import '../widgets/track_map.dart';
 import 'summary_page.dart';
 
 class RunningPage extends StatefulWidget {
-  const RunningPage({super.key, required this.repository});
+  const RunningPage({super.key, required this.repository, this.workoutPlan});
 
   final RunRepository repository;
+
+  /// 可选的训练计划。为 null 时表示自由跑。
+  final WorkoutPlan? workoutPlan;
 
   @override
   State<RunningPage> createState() => _RunningPageState();
@@ -26,6 +30,12 @@ class _RunningPageState extends State<RunningPage> {
   void initState() {
     super.initState();
     _session.addListener(_onChange);
+
+    // 设置训练计划。
+    if (widget.workoutPlan != null) {
+      _session.setWorkoutPlan(widget.workoutPlan);
+    }
+
     _session.start();
   }
 
@@ -80,6 +90,12 @@ class _RunningPageState extends State<RunningPage> {
                   ),
                 ],
               ),
+
+              // 训练模式：显示当前模块信息。
+              if (_session.isWorkout) ...[
+                const SizedBox(height: 20),
+                _WorkoutModuleIndicator(session: _session),
+              ],
               if (_showMap) ...[
                 const SizedBox(height: 16),
                 Expanded(
@@ -105,8 +121,10 @@ class _RunningPageState extends State<RunningPage> {
                     const SizedBox(width: 6),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child:
-                          Text('公里', style: text.bodyMedium?.copyWith(fontSize: 13)),
+                      child: Text(
+                        '公里',
+                        style: text.bodyMedium?.copyWith(fontSize: 13),
+                      ),
                     ),
                   ],
                 ),
@@ -133,8 +151,10 @@ class _RunningPageState extends State<RunningPage> {
                   Expanded(
                     child: _LiveStat(
                       label: '配速',
-                      value: formatPace(_session.currentPaceSecPerKm ??
-                          _session.avgPaceSecPerKm),
+                      value: formatPace(
+                        _session.currentPaceSecPerKm ??
+                            _session.avgPaceSecPerKm,
+                      ),
                     ),
                   ),
                 ],
@@ -205,7 +225,6 @@ class _MapToggle extends StatelessWidget {
 class _GpsBadge extends StatelessWidget {
   const _GpsBadge({required this.session});
 
-
   final RunSession session;
 
   @override
@@ -226,8 +245,10 @@ class _GpsBadge extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Text(label,
-            style: TextStyle(fontSize: 12, color: color, letterSpacing: 0.5)),
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: color, letterSpacing: 0.5),
+        ),
       ],
     );
   }
@@ -248,11 +269,79 @@ class _LiveStat extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                fontSize: 34,
-                fontWeight: FontWeight.w400,
-              ),
+            fontSize: 34,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// 训练模块指示器：显示当前模块名称、进度条和完成状态。
+class _WorkoutModuleIndicator extends StatelessWidget {
+  const _WorkoutModuleIndicator({required this.session});
+
+  final RunSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final module = session.activeModule;
+    if (module == null) return const SizedBox.shrink();
+
+    final text = Theme.of(context).textTheme;
+    final progress = module.progress;
+    final completedCount = session.completedModuleCount;
+    final totalCount = session.totalModuleCount;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.surfaceHigh),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 模块进度标题。
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '模块 ${completedCount + 1} / $totalCount',
+                style: text.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              Text(
+                module.module.label,
+                style: text.titleSmall?.copyWith(color: AppColors.accent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 进度条。
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: AppColors.surfaceHigh,
+              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // 进度百分比。
+          Text(
+            '${(progress * 100).toStringAsFixed(0)}%',
+            style: text.labelSmall?.copyWith(color: AppColors.textTertiary),
+          ),
+        ],
+      ),
     );
   }
 }

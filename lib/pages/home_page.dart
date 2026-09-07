@@ -6,6 +6,7 @@ import '../utils/format.dart';
 import 'history_page.dart';
 import 'run_detail_page.dart';
 import 'running_page.dart';
+import 'workout_select_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.repository});
@@ -37,8 +38,11 @@ class _HomePageState extends State<HomePage> {
 
   List<RunRecord> get _thisWeek {
     final now = DateTime.now();
-    final monday = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final monday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
     return _records.where((r) => r.startedAt.isAfter(monday)).toList();
   }
 
@@ -94,7 +98,9 @@ class _HomePageState extends State<HomePage> {
               if (_records.isEmpty && !_loading)
                 const _EmptyHint()
               else
-                ..._records.take(3).map(
+                ..._records
+                    .take(3)
+                    .map(
                       (r) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: RunListTile(
@@ -115,9 +121,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _startRun() async {
+    final selection = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const WorkoutSelectPage()));
+
+    if (selection is! WorkoutSelection) {
+      _refresh();
+      return;
+    }
+
+    // 跳转到跑步页，传入训练计划。
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => RunningPage(repository: widget.repository),
+        builder: (_) => RunningPage(
+          repository: widget.repository,
+          workoutPlan: selection.plan,
+        ),
       ),
     );
     _refresh();
@@ -154,8 +173,11 @@ class _Header extends StatelessWidget {
         ),
         IconButton(
           onPressed: onHistory,
-          icon: const Icon(Icons.history_rounded,
-              color: AppColors.textSecondary, size: 22),
+          icon: const Icon(
+            Icons.history_rounded,
+            color: AppColors.textSecondary,
+            size: 22,
+          ),
         ),
       ],
     );
@@ -185,13 +207,14 @@ class _WeekSummary extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(loading ? '--' : km.toStringAsFixed(1),
-                style: text.displayLarge),
+            Text(
+              loading ? '--' : km.toStringAsFixed(1),
+              style: text.displayLarge,
+            ),
             const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text('公里',
-                  style: text.bodyMedium?.copyWith(fontSize: 15)),
+              child: Text('公里', style: text.bodyMedium?.copyWith(fontSize: 15)),
             ),
           ],
         ),
@@ -222,11 +245,14 @@ class _MiniStat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 11,
-                letterSpacing: 1.2,
-                color: AppColors.textTertiary)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            letterSpacing: 1.2,
+            color: AppColors.textTertiary,
+          ),
+        ),
         const SizedBox(height: 6),
         Text(
           value,
@@ -317,7 +343,9 @@ class RunListTile extends StatelessWidget {
                   Text(
                     formatDate(record.startedAt),
                     style: const TextStyle(
-                        fontSize: 12, color: AppColors.textTertiary),
+                      fontSize: 12,
+                      color: AppColors.textTertiary,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -334,9 +362,13 @@ class RunListTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Text('km',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+                      const Text(
+                        'km',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -348,13 +380,17 @@ class RunListTile extends StatelessWidget {
                 Text(
                   formatDuration(record.duration),
                   style: const TextStyle(
-                      fontSize: 14, color: AppColors.textPrimary),
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '${formatPace(record.paceSecPerKm)} /km',
                   style: const TextStyle(
-                      fontSize: 12, color: AppColors.textTertiary),
+                    fontSize: 12,
+                    color: AppColors.textTertiary,
+                  ),
                 ),
               ],
             ),
